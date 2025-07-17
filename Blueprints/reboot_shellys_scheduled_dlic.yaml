@@ -1,0 +1,136 @@
+blueprint:
+  name: Scheduled Reboot for Shelly Gen1 & Gen2
+  author: DLIC
+  description: >
+    This blueprint automates a scheduled reboot for all your Shelly devices,
+    ensuring they stay responsive and up to date.
+
+    • **Shelly Gen2/Plus/Pro** devices are rebooted via the native `button.press` service.
+    • **Shelly Gen1** devices are rebooted over HTTP using a configurable REST command.
+
+    You can choose the days of the week and the exact time for the reboot, and
+    optionally receive a custom push notification on your mobile device once
+    the process completes.
+
+    Perfect for maintaining network stability, preventing memory leaks, and
+    keeping your smart home running smoothly without manual intervention.
+  domain: automation
+  input:
+    shelly_gen2_buttons:
+      name: Reboot Buttons (Shelly Gen2/Plus)
+      description: Select the reboot buttons of Shelly Gen2/Plus devices.
+      selector:
+        entity:
+          domain: button
+          filter:
+            - integration: shelly
+          multiple: true
+
+    shelly_gen1_ips:
+      name: Shelly Gen1 Device IPs
+      description: >
+        Enter Gen1 device IPs (comma-separated). Example: 192.168.1.10, 192.168.1.25
+      default: ""
+      selector:
+        text:
+
+    reboot_days:
+      name: Days of the Week
+      description: Select one or more days when the reboot should occur.
+      selector:
+        select:
+          options:
+            - monday
+            - tuesday
+            - wednesday
+            - thursday
+            - friday
+            - saturday
+            - sunday
+          multiple: true
+
+    reboot_time:
+      name: Reboot Time
+      description: Time of day to perform the reboot (HH:MM:SS).
+      default: "04:00:00"
+      selector:
+        time:
+
+    enable_notification:
+      name: Send Push Notification?
+      description: If enabled, a push notification will be sent after the reboot.
+      default: false
+      selector:
+        boolean:
+
+    notify_device:
+      name: Notification Target Device
+      description: Select the mobile device to receive the push notification.
+      selector:
+        device:
+          filter:
+            - integration: mobile_app
+          multiple: false
+
+    notification_title:
+      name: Notification Title
+      description: Title of the push notification.
+      default: "Shelly Reboot"
+
+    notification_message:
+      name: Notification Message
+      description: Main message to include in the push notification.
+      default: "Your Shelly devices were rebooted."
+
+trigger:
+  - platform: time
+    at: !input reboot_time
+
+condition:
+  - condition: template
+    value_template: >
+      {{ now().strftime('%A') | lower
+         in (reboot_days | map('lower') | list) }}
+
+action:
+  # Reboot Gen2 via button.press (só se houver botões selecionados)
+  - if:
+      - condition: template
+        value_template: "{{ shelly_gen2_buttons | length > 0 }}"
+    then:
+      - repeat:
+          for_each: !input shelly_gen2_buttons
+          sequence:
+            - service: button.press
+              target:
+                entity_id: "{{ repeat.item }}"
+
+  # Reboot Gen1 via HTTP usando rest_command
+  - variables:
+      shelly_ips_raw: !input shelly_gen1_ips
+
+  - if:
+      - condition: template
+        value_template: "{{ shelly_ips_raw | trim != '' }}"
+    then:
+      - variables:
+          gen1_ips: >
+            {{ shelly_ips_raw.split(',') | map('trim') | select('match', '^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$') | list }}
+      - repeat:
+          for_each: "{{ gen1_ips }}"
+          sequence:
+            - service: rest_command.reboot_shelly_gen1
+              data:
+                ip: "{{ repeat.item }}"
+
+  # Notificação push opcional
+  - if:
+      - condition: template
+        value_template: "{{ enable_notification }}"
+    then:
+      - service: notify.mobile_app_{{ notify_device }}
+        data:
+          title: !input notification_title
+          message: "{{ notification_message }} (Triggered at {{ now().strftime('%H:%M') }})"
+
+mode: single

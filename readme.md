@@ -10,7 +10,7 @@ This repository contains useful and ready-to-use Home Assistant blueprints creat
 
 Automatically reboots your Shelly devices (Gen1, Gen2, Plus, Pro) on a schedule to keep them stable and responsive.
 
-➡️ [Import Blueprint](https://raw.githubusercontent.com/davdlic/HomeAssistant/main/blueprints/automation/dlic/reboot_shellys_scheduled_dlic.yaml)
+[![Import Blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?repository_url=https://raw.githubusercontent.com/davdlic/HomeAssistant/main/blueprints/automation/dlic/reboot_shellys_scheduled_dlic.yaml)
 
 ---
 
